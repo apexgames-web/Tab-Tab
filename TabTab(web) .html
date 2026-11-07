@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TabTab</title>
+<style>
+:root{--bg:#f4f1ff;--card:#fff;--text:#1d1a33;--muted:#6b6790;--accent:#6c4cff;--accent2:#ff5c8a;--line:#ddd8f5;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13111f;--card:#1e1b30;--text:#f0eeff;--muted:#9a96c0;--accent:#8f78ff;--accent2:#ff7aa3;--line:#332f52;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#13111f;--card:#1e1b30;--text:#f0eeff;--muted:#9a96c0;--accent:#8f78ff;--accent2:#ff7aa3;--line:#332f52;color-scheme:dark}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;justify-content:center}
+#app{width:100%;max-width:480px;padding:20px;display:flex;flex-direction:column;min-height:100%}
+.screen{display:none;flex:1;flex-direction:column;justify-content:center;gap:16px;text-align:center}
+.screen.on{display:flex}
+h1{font-size:3rem;margin:0;letter-spacing:-1px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+p{margin:0;color:var(--muted)}
+button{font:inherit;cursor:pointer;border:0;touch-action:manipulation}
+.btn{background:var(--accent);color:#fff;padding:16px;border-radius:16px;font-weight:700;font-size:1.1rem}
+.btn.alt{background:var(--card);color:var(--text);border:2px solid var(--line)}
+.mode{background:var(--card);border:2px solid var(--line);border-radius:20px;padding:20px;text-align:left;color:var(--text)}
+.mode b{font-size:1.2rem;display:block;margin-bottom:4px}
+.mode span{color:var(--muted);font-size:.95rem}
+.mode:active{border-color:var(--accent)}
+.chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.chip{background:var(--card);border:2px solid var(--line);color:var(--text);padding:10px 16px;border-radius:999px;font-weight:600}
+.chip.sel{border-color:var(--accent);background:var(--accent);color:#fff}
+input{font:inherit;font-size:2rem;text-align:center;width:160px;padding:10px;border-radius:14px;border:2px solid var(--line);background:var(--card);color:var(--text);align-self:center}
+#game.screen{justify-content:flex-start}
+.hud{display:flex;justify-content:space-between;gap:10px}
+.stat{flex:1;background:var(--card);border-radius:16px;padding:10px;border:2px solid var(--line)}
+.stat small{display:block;color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.08em}
+.stat b{font-size:1.8rem;font-variant-numeric:tabular-nums}
+.bar{height:10px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+#pad{flex:1;min-height:260px;border-radius:28px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:2rem;font-weight:800;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;touch-action:manipulation;transition:transform .05s;position:relative;overflow:hidden}
+#pad.hit{transform:scale(.97)}
+.big{font-size:4.5rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.best{color:var(--accent);font-weight:700}
+.ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.45);width:20px;height:20px;transform:translate(-50%,-50%) scale(1);animation:rp .5s ease-out forwards;pointer-events:none}
+@keyframes rp{to{transform:translate(-50%,-50%) scale(8);opacity:0}}
+</style>
+</head>
+<body>
+<div id="app">
+  <section class="screen on" id="menu">
+    <h1>TabTab</h1>
+    <p>How fast can you tap? Pick a mode.</p>
+    <button class="mode" data-mode="time"><b>⏱ Time limit</b><span>Set a time and tap as many times as you can.</span></button>
+    <button class="mode" data-mode="goal"><b>🎯 Click goal</b><span>Set a tap goal and beat the clock to reach it.</span></button>
+  </section>
+
+  <section class="screen" id="setup">
+    <h1 id="setupTitle"></h1>
+    <p id="setupHint"></p>
+    <div class="chips" id="chips"></div>
+    <input id="val" type="number" inputmode="numeric" min="1" max="9999">
+    <p id="bestLine" class="best"></p>
+    <button class="btn" id="start">Start</button>
+    <button class="btn alt" id="back1">Back</button>
+  </section>
+
+  <section class="screen" id="game">
+    <div class="hud">
+      <div class="stat"><small id="l1">Time</small><b id="s1">0</b></div>
+      <div class="stat"><small id="l2">Taps</small><b id="s2">0</b></div>
+    </div>
+    <div class="bar"><i id="prog"></i></div>
+    <div id="pad">TAP HERE!</div>
+  </section>
+
+  <section class="screen" id="result">
+    <p id="rLabel"></p>
+    <div class="big" id="rBig"></div>
+    <p id="rSub"></p>
+    <p id="rBest" class="best"></p>
+    <button class="btn" id="again">Play again</button>
+    <button class="btn alt" id="home">Menu</button>
+  </section>
+</div>
+
+<script>
+(function(){
+  var $=function(i){return document.getElementById(i)};
+  var mode='time', value=10, taps=0, running=false, t0=0, raf=0, timeUp=false;
+  var presets={time:[5,10,30,60],goal:[20,50,100,200]};
+  var best={};
+  try{best=JSON.parse(localStorage.getItem('tabtab-best')||'{}')||{}}catch(e){best={}}
+  function saveBest(){try{localStorage.setItem('tabtab-best',JSON.stringify(best))}catch(e){}}
+  function show(id){['menu','setup','game','result'].forEach(function(s){$(s).classList.toggle('on',s===id)})}
+
+  function bestText(){
+    var k=mode+value, b=best[k];
+    if(b==null)return '';
+    return mode==='time'?'Best for '+value+'s: '+b+' taps':'Best for '+value+' taps: '+b.toFixed(2)+'s';
+  }
+  function setValue(v){
+    value=Math.max(1,Math.min(9999,Math.floor(+v)||1));
+    $('val').value=value;
+    var cs=$('chips').children;
+    for(var i=0;i<cs.length;i++)cs[i].classList.toggle('sel',+cs[i].dataset.v===value);
+    $('bestLine').textContent=bestText();
+  }
+  function openSetup(m){
+    mode=m;
+    $('setupTitle').textContent=m==='time'?'⏱ Time limit':'🎯 Click goal';
+    $('setupHint').textContent=m==='time'?'Choose how many seconds you get.':'Choose how many taps you need.';
+    $('chips').innerHTML='';
+    presets[m].forEach(function(p){
+      var b=document.createElement('button');b.className='chip';b.dataset.v=p;
+      b.textContent=m==='time'?p+'s':p;
+      b.onclick=function(){setValue(p)};
+      $('chips').appendChild(b);
+    });
+    setValue(presets[m][1]);
+    show('setup');
+  }
+  document.querySelectorAll('.mode').forEach(function(b){b.onclick=function(){openSetup(b.dataset.mode)}});
+  $('val').oninput=function(){if($('val').value!=='')setValue($('val').value)};
+  $('back1').onclick=function(){show('menu')};
+  $('home').onclick=function(){show('menu')};
+  $('again').onclick=function(){openSetup(mode)};
+  $('start').onclick=startGame;
+
+  function startGame(){
+    setValue($('val').value);
+    taps=0;running=false;timeUp=false;
+    $('s2').textContent='0';$('prog').style.width='0';
+    if(mode==='time'){
+      $('l1').textContent='Time left';$('s1').textContent=value.toFixed(1)+'s';
+      $('l2').textContent='Taps';
+    }else{
+      $('l1').textContent='Time';$('s1').textContent='0.00s';
+      $('l2').textContent='Taps left';$('s2').textContent=value;
+    }
+    $('pad').textContent='TAP HERE!';
+    show('game');
+  }
+
+  function tick(){
+    if(!running)return;
+    var el=(performance.now()-t0)/1000;
+    if(mode==='time'){
+      var left=value-el;
+      if(left<=0){$('s1').textContent='0.0s';$('prog').style.width='100%';finish(value);return}
+      $('s1').textContent=left.toFixed(1)+'s';
+      $('prog').style.width=(el/value*100)+'%';
+    }else{
+      $('s1').textContent=el.toFixed(2)+'s';
+    }
+    raf=requestAnimationFrame(tick);
+  }
+
+  function onTap(e){
+    e.preventDefault();
+    if(timeUp)return;
+    var pad=$('pad');
+    pad.classList.add('hit');setTimeout(function(){pad.classList.remove('hit')},60);
+    var r=pad.getBoundingClientRect(),rp=document.createElement('span');
+    rp.className='ripple';rp.style.left=(e.clientX-r.left)+'px';rp.style.top=(e.clientY-r.top)+'px';
+    pad.appendChild(rp);setTimeout(function(){rp.remove()},500);
+    if(!running){running=true;t0=performance.now();pad.textContent='KEEP TAPPING!';raf=requestAnimationFrame(tick)}
+    if(mode==='time'){
+      if((performance.now()-t0)/1000>=value)return;
+      taps++;$('s2').textContent=taps;
+    }else{
+      taps++;$('s2').textContent=Math.max(0,value-taps);
+      $('prog').style.width=(taps/value*100)+'%';
+      if(taps>=value)finish((performance.now()-t0)/1000);
+    }
+  }
+  $('pad').addEventListener('pointerdown',onTap);
+
+  function finish(elapsed){
+    running=false;timeUp=true;cancelAnimationFrame(raf);
+    var k=mode+value,isBest=false;
+    if(mode==='time'){
+      $('rLabel').textContent='⏰ Time’s up!';
+      $('rBig').textContent=taps;
+      $('rSub').textContent='taps in '+value+'s ('+(taps/value).toFixed(1)+' taps/sec)';
+      if(best[k]==null||taps>best[k]){best[k]=taps;isBest=true}
+    }else{
+      $('rLabel').textContent='🎯 Goal reached!';
+      $('rBig').textContent=elapsed.toFixed(2)+'s';
+      $('rSub').textContent=value+' taps ('+(value/elapsed).toFixed(1)+' taps/sec)';
+      if(best[k]==null||elapsed<best[k]){best[k]=elapsed;isBest=true}
+    }
+    saveBest();
+    $('rBest').textContent=isBest?'🏆 New best!':bestText();
+    setTimeout(function(){show('result')},350);
+  }
+})();
+</script>
+</body>
+</html>
